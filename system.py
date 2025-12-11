@@ -1,22 +1,30 @@
 from utils import *
 import numpy as np
 
-feature_amount = 49  # Number of features to extract
-neighbors = 9 # Number of neighbors for KNN
+feature_amount = 85  # Number of features to extract
+neighbors = 21 # Number of neighbors for KNN
 
 def image_to_reduced_feature(images, split='test'):
+    from sklearn.decomposition import PCA
     # Get lablels only if training for LDA
     if split == 'train':
-        _, labels = get_dataset('train')
-        standardised_images = standardise_features(images, split='train')
-        pca_reduced_image = pca(standardised_images, split='train')
-        reduced_image = lda(pca_reduced_image, labels, split='train')
-    else:
-        standardised_images = standardise_features(images, split='test')
-        pca_reduced_image = pca(standardised_images, split='test')
-        reduced_image = lda(pca_reduced_image, None, split='test')
+        # _, labels = get_dataset('train')
+        # standardised_images = standardise_features(images, split='train')
+        # pca_reduced_image = pca(standardised_images, split='train')
+        # reduced_image = lda(pca_reduced_image, labels, split='train')
+        pca = PCA(n_components=feature_amount)
+        pca.fit(images)
+        pca_reduced_image = pca.transform(images)
+        save_model(pca, "pca_model.pkl")
 
-    return reduced_image
+    else:
+        # standardised_images = standardise_features(images, split='test')
+        # pca_reduced_image = pca(standardised_images, split='test')
+        # reduced_image = lda(pca_reduced_image, None, split='test')
+        pca = load_model("pca_model.pkl")
+        pca_reduced_image = pca.transform(images)
+
+    return pca_reduced_image
 
 def training_model(train_features, train_labels):
     # use scikit-learns knn implementation
@@ -42,15 +50,24 @@ def pca(data_standardised, n_components=feature_amount, split='test'):
     """Perform PCA on the data and return the reduced feature set based on training data."""
 
     if split == 'train':
-        # Compute covariance matrix
-        covariance_matrix = np.cov(data_standardised, rowvar=False)
+        # Compute covariance matrix (This step is now conceptually replaced by SVD)
+        # SVD of the standardized data is performed directly
+        
+        # --- 1. SVD of the Standardized Data ---
+        U, S, Vh = np.linalg.svd(data_standardised)
 
-        # Eigen decomposition
-        eigenvalues, eigenvectors = np.linalg.eigh(covariance_matrix)
+        # Eigen decomposition (The Principal Components are Vh transpose)
+        all_eigenvectors = Vh.T
 
+        # Sort eigenvalues and corresponding eigenvectors (Eigenvalues are derived from S)
+        N = data_standardised.shape[0]
+        eigenvalues = (S ** 2) / (N - 1)
+        
         # Sort eigenvalues and corresponding eigenvectors
         sorted_indices = np.argsort(eigenvalues)[::-1]
-        sorted_eigenvectors = eigenvectors[:, sorted_indices]
+        
+        # Sort the eigenvectors according to the sorted indices
+        sorted_eigenvectors = all_eigenvectors[:, sorted_indices]
 
         # Select the top n_components eigenvectors
         eigenvector_subset = sorted_eigenvectors[:, 0:n_components]
@@ -62,7 +79,7 @@ def pca(data_standardised, n_components=feature_amount, split='test'):
     reduced_data = np.dot(data_standardised, eigenvector_subset)
     return reduced_data
 
-def lda(data_standardised, labels, n_components=None, split='test'):
+def lda(data_standardised, labels=None, n_components=None, split='test'):
     """
     Performs Linear Discriminant Analysis (LDA) to find the dimensions
     that maximise class separability.
