@@ -45,18 +45,16 @@ def gaussian_noise(images):
     if images.ndim != 2 or images.shape[1] != 784:
         raise ValueError("Input images must be a 2D array of shape (N, 784).")
 
-    # 1. Reshape from (N, 784) to (N, 28, 28) for 2D filtering
+    # Reshape from (N, 784) to (N, 28, 28) for 2D filtering
     N = images.shape[0]
     images_2d = images.reshape(N, 28, 28)
 
-    # 2. Apply Gaussian filter to each image
-    # We use a list comprehension to apply the filter to every 28x28 slice
-    # The filter smooths the noise while preserving digit edges. 
+    # Apply Gaussian filter to each image
     filtered_images = np.array([
         gaussian_filter(img, sigma=DENOISING_SIGMA) for img in images_2d
     ])
 
-    # 3. Flatten them back to (N, 784) for PCA
+    # Flatten them back to (N, 784) for PCA
     images_flat = filtered_images.reshape(N, 784)
     
     return images_flat
